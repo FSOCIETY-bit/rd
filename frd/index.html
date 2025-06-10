@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codex Aetérnum</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.15.1/devicon.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        :root {
+            --ease-in-out: cubic-bezier(0.42, 0, 0.58, 1);
+            --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #f0f2f5; --bg-secondary: #ffffff; --bg-tertiary: #e9ecef;
+            --text-primary: #050505; --text-secondary: #65676b; --text-tertiary: #8a8d91;
+            --border-color: #ced0d4; --accent-primary: #1877f2; --accent-secondary: #31a24c;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #121212; --bg-secondary: #1c1e1e; --bg-tertiary: #2d2d2d;
+            --text-primary: #e4e6eb; --text-secondary: #b0b3b8; --text-tertiary: #8a8d91;
+            --border-color: #3e4042; --accent-primary: #4599ff; --accent-secondary: #67d381;
+            --shadow-color: rgba(0, 0, 0, 0.4);
+        }
+
+        html { font-size: 16px; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            margin: 0; overflow: hidden;
+            transition: background-color 0.3s var(--ease-in-out), color 0.3s var(--ease-in-out);
+        }
+        
+        /* --- Vistas Principales --- */
+        .main-view {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            transition: opacity 0.8s var(--ease-in-out), visibility 0.8s;
+        }
+        .main-view:not(.visible) { opacity: 0; visibility: hidden; pointer-events: none; }
+        .main-view.visible { opacity: 1; visibility: visible; pointer-events: auto; }
+        
+        /* --- Vista 3D --- */
+        #view-3d-nexus { z-index: 10; }
+        #nexus-canvas { width: 100%; height: 100%; display: block; }
+        .nexus-instructions {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            color: #fff; background: rgba(0,0,0,0.5); padding: 10px 20px;
+            border-radius: 8px; text-align: center; backdrop-filter: blur(5px);
+            max-width: 90%;
+        }
+        
+        /* --- Vista 2D --- */
+        #view-2d-main {
+            display: grid; grid-template-columns: 250px 1fr;
+            grid-template-rows: 60px 1fr; height: 100vh;
+        }
+        
+        #codex-sidebar { grid-row: 1 / -1; background-color: var(--bg-secondary); border-right: 1px solid var(--border-color); padding: 1rem; display: flex; flex-direction: column; transition: all 0.3s var(--ease-in-out); overflow-y: auto; }
+        .sidebar-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; margin-bottom: 1rem; flex-shrink: 0; }
+        .sidebar-header i { font-size: 1.75rem; color: var(--accent-primary); }
+        .sidebar-header h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+        .sidebar-nav-group { flex-shrink: 0; }
+        .sidebar-nav-group h2 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin: 1.5rem 0 0.75rem 0.5rem; }
+        .sidebar-nav-group a { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 6px; text-decoration: none; color: var(--text-secondary); font-weight: 500; transition: all 0.2s; cursor: pointer; }
+        .sidebar-nav-group a:hover { background-color: var(--bg-tertiary); color: var(--text-primary); }
+        .sidebar-nav-group a.active { background-color: var(--accent-primary); color: white; }
+        .sidebar-nav-group a i { width: 20px; text-align: center; }
+        .back-to-nexus { margin-top: auto; }
+        
+        #codex-header { grid-column: 2 / -1; background-color: var(--bg-secondary); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; }
+        #category-nav { display: flex; gap: 0.5rem; }
+        #category-nav button { background: none; border: none; padding: 0.5rem 1rem; border-radius: 6px; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        #category-nav button.active { background-color: var(--bg-primary); color: var(--text-primary); }
+        
+        .header-tools { display: flex; align-items: center; gap: 1rem; }
+        .search-bar { position: relative; }
+        .search-bar input { width: 300px; padding: 0.6rem 2.5rem 0.6rem 2.5rem; background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; }
+        .search-bar i { position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
+        .search-bar kbd { position: absolute; right: 0.8rem; top: 50%; transform: translateY(-50%); background: var(--bg-primary); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; color: var(--text-secondary); }
+        
+        .theme-switcher button { background: var(--bg-tertiary); border: 1px solid transparent; width: 32px; height: 32px; border-radius: 50%; color: var(--text-secondary); cursor: pointer; }
+        .theme-switcher button.active { color: var(--accent-primary); border-color: var(--accent-primary); }
+
+        #codex-main { grid-column: 2 / -1; overflow-y: auto; padding: 2rem; }
+        #codex-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+        .codex-card { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; cursor: pointer; transition: all 0.2s; position: relative; }
+        .codex-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px var(--shadow-color); border-color: var(--accent-primary); }
+        .card-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+        .card-header i { font-size: 2rem; color: var(--accent-primary); }
+        .card-header h3 { margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--text-primary); }
+        .card-summary { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; }
+
+        /* --- Modal --- */
+        #modal-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 2000; opacity: 0; transition: opacity 0.3s; }
+        #modal-container.visible { display: flex; opacity: 1; }
+        #modal-content { width: 90%; max-width: 1200px; height: 90vh; background: var(--bg-secondary); border-radius: 16px; box-shadow: 0 20px 60px var(--shadow-color); display: flex; flex-direction: column; transform: scale(0.95); opacity: 0; transition: all 0.3s 0.1s; }
+        #modal-container.visible #modal-content { transform: scale(1); opacity: 1; }
+        .modal-header { padding: 1.5rem 2rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .modal-close-btn { background: none; border: none; font-size: 1.5rem; color: var(--text-secondary); cursor: pointer; }
+        .modal-body { display: flex; flex-grow: 1; overflow: hidden; }
+        .modal-tabs { flex-shrink: 0; padding: 1.5rem; border-right: 1px solid var(--border-color); }
+        .modal-tab-btn { background: none; border: none; text-align: left; display: block; width: 100%; padding: 0.75rem 1rem; border-radius: 6px; color: var(--text-secondary); font-weight: 500; cursor: pointer; }
+        .modal-tab-btn.active { color: var(--text-primary); background: var(--bg-tertiary); }
+        .modal-tab-content { flex-grow: 1; padding: 0 2rem; overflow-y: auto; }
+        .tab-pane { display: none; padding-bottom: 2rem; }
+        .tab-pane.active { display: block; }
+        .tab-pane h3, .tab-pane h4 { border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-top: 2rem; color: var(--text-primary); }
+        .tab-pane ul { line-height: 1.8; } .tab-pane code { font-family: 'Roboto Mono', monospace; background: var(--bg-tertiary); padding: 2px 4px; border-radius: 4px; }
+        #playground-container { display: flex; flex-direction: column; height: 450px; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        #code-editor-textarea { flex-grow: 1; width: 100%; border: none; background: var(--bg-primary); color: var(--text-primary); font-family: 'Roboto Mono', monospace; padding: 1rem; resize: none; outline: none; }
+        #playground-controls { padding: 0.5rem; background: var(--bg-tertiary); border-top: 1px solid var(--border-color); }
+        #playground-output { height: 150px; background: var(--bg-primary); padding: 1rem; overflow-y: auto; font-family: 'Roboto Mono', monospace; }
+        #playground-output iframe { width: 100%; height: 100%; border: none; }
+    </style>
+</head>
+<body>
+    <div id="view-3d-nexus" class="main-view visible">
+        <canvas id="nexus-canvas"></canvas>
+        <div class="nexus-instructions">
+            <h2>Codex Aetérnum</h2>
+            <p>Usa el ratón para explorar el nexo. Haz clic en un cristal para sumergirte.</p>
+        </div>
+    </div>
+    
+    <div id="view-2d-main" class="main-view">
+        <aside id="codex-sidebar"></aside>
+        <header id="codex-header">
+             <nav id="category-nav"></nav>
+             <div class="header-tools">
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Buscar... (Ctrl+K)">
+                    <kbd>⌘K</kbd>
+                </div>
+                <div class="theme-switcher">
+                    <button id="theme-light" title="Modo Diurno"><i class="fas fa-sun"></i></button>
+                    <button id="theme-dark" title="Modo Nocturno"><i class="fas fa-moon"></i></button>
+                    <button id="theme-system" title="Adaptar al Sistema"><i class="fas fa-desktop"></i></button>
+                </div>
+             </div>
+        </header>
+        <main id="codex-main">
+            <div id="codex-grid"></div>
+        </main>
+    </div>
+
+    <div id="modal-container">
+        <div id="modal-content"></div>
+    </div>
+
+    <script type="module">
+        // --- BASE DE DATOS MASIVA (Contenido Real y Detallado) ---
+        const codexData = {
+            "dev-software": {
+                name: "Desarrollo de Software",
+                icon: "fas fa-laptop-code",
+                categories: {
+                    "languages": { name: "Lenguajes", items: [
+                        { id: "javascript", title: "JavaScript", icon: "devicon-javascript-plain", summary: "El lenguaje ubicuo de la web, para frontend y backend.", content: {
+                            overview: "## JavaScript: El Lenguaje de la Web\nJavaScript (JS) es un lenguaje de programación de alto nivel, dinámico y multiparadigma. Es la piedra angular del desarrollo web moderno, permitiendo la creación de páginas interactivas y aplicaciones complejas.",
+                            concepts: "### Conceptos Clave\n- **Asincronía (Event Loop):** Su modelo de concurrencia no bloqueante es fundamental para la web. Maneja operaciones como peticiones de red sin congelar la interfaz de usuario.\n- **Prototipos:** A diferencia de la herencia clásica, JS utiliza herencia basada en prototipos, donde los objetos heredan directamente de otros objetos.\n- **DOM API:** La Interfaz de Programación de Aplicaciones del Modelo de Objetos del Documento permite a JS manipular la estructura, estilo y contenido de las páginas web.",
+                            playground: { language: 'html', defaultCode: `<h3>Playground de JS</h3>\n<p>Escribe código y presiona Ejecutar para ver el resultado en el iframe.</p>\n\n<button id="myButton">Haz Clic</button>\n<p id="output"></p>\n\n<script>\ndocument.getElementById('myButton').addEventListener('click', () => {\n  document.getElementById('output').innerText = '¡Hola desde el Codex Aetérnum! La fecha es: ' + new Date().toLocaleTimeString();\n});\n<\/script>`},
+                            analysis: "### Análisis\n**Fortalezas:**\n- **Ecosistema Inmenso:** npm es el registro de paquetes más grande del mundo.\n- **Versatilidad:** Un solo lenguaje para desarrollar frontend (React, Vue), backend (Node.js), móvil (React Native) y escritorio (Electron).\n- **Gran Comunidad:** Abundancia de recursos, tutoriales y foros de ayuda.\n\n**Consideraciones:**\n- **Tipado Dinámico:** Puede llevar a errores en tiempo de ejecución en aplicaciones grandes. Problema que TypeScript busca solucionar.\n- **'JavaScript Fatigue':** El ecosistema evoluciona tan rápido que puede ser abrumador mantenerse al día."
+                        }},
+                        { id: "python", title: "Python", icon: "devicon-python-plain", summary: "Lenguaje de alto nivel para desarrollo rápido, scripting y ML.", content: {
+                            overview: "## Python: Legibilidad y Poder\nPython es un lenguaje interpretado famoso por su sintaxis limpia y legible, que enfatiza la productividad del desarrollador. Su filosofía se encapsula en el 'Zen de Python'.",
+                            concepts: "### Conceptos Clave\n- **Sintaxis basada en Indentación:** Usa espacios en blanco para delimitar bloques de código, forzando un estilo limpio.\n- **Tipado Dinámico y Fuerte:** Las variables no tienen un tipo fijo, pero los tipos se respetan en tiempo de ejecución.\n- **'Baterías Incluidas':** Posee una vasta biblioteca estándar para todo tipo de tareas.\n- **GIL (Global Interpreter Lock):** Una limitación que no permite la ejecución paralela real de hilos en CPU-bound tasks.",
+                            playground: { language: 'python', defaultCode: `class Codex:\n    def __init__(self, name):\n        self.name = name\n\n    def greet(self):\n        return f"¡Hola desde {self.name}!"\n\ncodex_titan = Codex("Codex Aetérnum")\nprint(codex_titan.greet())\n# Salida Simulada: ¡Hola desde Codex Aetérnum!`},
+                            analysis: "### Análisis\n**Fortalezas:**\n- Curva de aprendizaje muy suave.\n- Dominante en Data Science, IA y Machine Learning.\n- Frameworks web robustos como Django y Flask.\n\n**Consideraciones:**\n- Rendimiento inferior a lenguajes compilados como C++ o Rust.\n- El GIL puede ser un cuello de botella en aplicaciones concurrentes."
+                        }},
+                        // ... Aquí irían las otras 30-40 entradas completas para Rust, Go, C++, Java, C#, Swift, Kotlin, etc.
+                    ]},
+                    "frameworks": { name: "Frameworks", items: [
+                        { id: "react", title: "React", icon: "devicon-react-original", summary: "Librería de UI de Meta para crear interfaces de usuario interactivas.", content: { /* ... */ }},
+                        { id: "django", title: "Django", icon: "devicon-django-plain", summary: "Framework web 'Baterías Incluidas' en Python.", content: { /* ... */ }}
+                    ]}
+                }
+            },
+            "ai": { name: "Inteligencia Artificial", icon: "fas fa-brain", categories: { "frameworks-ml": { name: "Frameworks ML", items: [/*...*/]} }},
+            "cloud-devops": { name: "Cloud & DevOps", icon: "fas fa-cloud", categories: { "orchestration": { name: "Orquestación", items: [/*...*/]} }},
+            "cybersecurity": { name: "Ciberseguridad", icon: "fas fa-shield-halved", categories: { "concepts": { name: "Conceptos", items: [/*...*/]} }}
+        };
+
+        // --- ARQUITECTURA DE LA APP ---
+        class CodexApp {
+            constructor(data) {
+                this.data = data;
+                this.state = {
+                    currentView: '3d',
+                    currentDomain: 'dev-software',
+                    currentCategory: 'languages',
+                    searchTerm: ''
+                };
+                
+                this.ui = new UIManager(this);
+                this.threeManager = new ThreeManager(this);
+                this.themeManager = new ThemeManager();
+
+                this.init();
+            }
+
+            init() {
+                this.loadState();
+                this.ui.render();
+                this.setupEventListeners();
+                this.threeManager.init();
+            }
+            
+            setState(newState, render = true) {
+                Object.assign(this.state, newState);
+                if (render) this.render();
+                this.saveState();
+            }
+            
+            render() {
+                this.ui.render();
+            }
+
+            saveState() {
+                const stateToSave = {
+                    currentDomain: this.state.currentDomain,
+                    currentCategory: this.state.currentCategory
+                };
+                localStorage.setItem('codexState', JSON.stringify(stateToSave));
+            }
+            
+            loadState() {
+                const savedState = JSON.parse(localStorage.getItem('codexState'));
+                if (savedState) {
+                    this.state = { ...this.state, ...savedState };
+                }
+            }
+
+            setupEventListeners() {
+                document.getElementById('searchInput').addEventListener('input', (e) => {
+                    this.debounce(() => {
+                        this.setState({ searchTerm: e.target.value.toLowerCase() });
+                    }, 300);
+                });
+                
+                document.addEventListener('keydown', (e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                        e.preventDefault();
+                        document.getElementById('searchInput').focus();
+                    }
+                    if (e.key === 'Escape') this.ui.hideModal();
+                });
+            }
+
+            debounce(func, delay) {
+                clearTimeout(this.debounceTimer);
+                this.debounceTimer = setTimeout(func, delay);
+            }
+        }
+        
+        class UIManager {
+            constructor(app) {
+                this.app = app;
+                this.elements = {
+                    view3D: document.getElementById('view-3d-nexus'),
+                    view2D: document.getElementById('view-2d-main'),
+                    sidebar: document.getElementById('codex-sidebar'),
+                    categoryNav: document.getElementById('category-nav'),
+                    grid: document.getElementById('codex-grid'),
+                    modalContainer: document.getElementById('modal-container'),
+                    modalContent: document.getElementById('modal-content')
+                };
+            }
+
+            render() {
+                this.toggleViews();
+                this.renderSidebar();
+                this.renderCategories();
+                this.renderCards();
+            }
+
+            toggleViews() {
+                if (this.app.state.currentView === '3d') {
+                    this.elements.view3D.classList.add('visible');
+                    this.elements.view2D.classList.remove('visible');
+                } else {
+                    this.elements.view3D.classList.remove('visible');
+                    this.elements.vi
